@@ -16,6 +16,8 @@ usage()
 image_name=kds285/minizero:latest
 container_volume="-v .:/workspace"
 container_argumenets=""
+# Enable NVIDIA GPUs via CDI if available
+gpu_arguments="--device nvidia.com/gpu=all"
 while :; do
 	case $1 in
 		-h|--help) shift; usage
@@ -37,5 +39,5 @@ while :; do
 done
 
 container_argumenets=$(echo ${container_argumenets} | xargs)
-echo "podman run ${container_argumenets} --cap-add=SYS_PTRACE --security-opt seccomp=unconfined --network=host --ipc=host --rm -it ${container_volume} ${image_name}"
-podman run ${container_argumenets} --cap-add=SYS_PTRACE --security-opt seccomp=unconfined --network=host --ipc=host --rm -it ${container_volume} ${image_name}
+echo "podman run ${container_argumenets} ${gpu_arguments} --cap-add=SYS_PTRACE --security-opt seccomp=unconfined --network=host --ipc=host --rm -it ${container_volume} ${image_name}"
+podman run ${container_argumenets} ${gpu_arguments} --cap-add=SYS_PTRACE --security-opt seccomp=unconfined --network=host --ipc=host --rm -it ${container_volume} ${image_name}

@@ -18,6 +18,9 @@ fi
 # Redirect output to stderr.
 exec 1>&2
 
+# Silence Python deprecation warnings that can pollute hook output
+export PYTHONWARNINGS=ignore
+
 # check cpp, reference: https://github.com/cpplint/cpplint & https://qiita.com/janus_wel/items/cfc6914d6b7b8bf185b6
 format_warning=0
 filters='-build/c++11,-build/include_subdir,-build/include_order,-build/namespaces,-legal/copyright,-readability/todo,-runtime/explicit,-runtime/references,-runtime/string,-whitespace/braces,-whitespace/comments,-whitespace/indent,-whitespace/line_length'
