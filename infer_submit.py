@@ -10,10 +10,56 @@ from stylometry.sgf_go import load_player_games_tokens
 from stylometry.model import TokenTransformerEncoder
 
 
+def find_latest_checkpoint(checkpoint_path: str) -> Path:
+    """Find the latest checkpoint. If given a directory, finds latest checkpoint file.
+    Supports both timestamped directories and direct checkpoint files."""
+    ckpt_path = Path(checkpoint_path)
+
+    # If it's a file, use it directly
+    if ckpt_path.is_file():
+        return ckpt_path
+
+    # If it's a directory, look for checkpoints
+    if ckpt_path.is_dir():
+        # First, check if it's a timestamped checkpoint directory (contains final checkpoint)
+        final_ckpt = ckpt_path / 'ge2e_token.pt'
+        if final_ckpt.exists():
+            return final_ckpt
+
+        # Or check for ge2e_board.pt (for board architecture)
+        final_ckpt_board = ckpt_path / 'ge2e_board.pt'
+        if final_ckpt_board.exists():
+            return final_ckpt_board
+
+        # Look for checkpoint files in this directory
+        ckpt_files = list(ckpt_path.glob('*.pt'))
+        if ckpt_files:
+            # Sort by modification time, return latest
+            return max(ckpt_files, key=lambda p: p.stat().st_mtime)
+
+        # If directory contains timestamped subdirectories, find latest one
+        subdirs = [d for d in ckpt_path.iterdir() if d.is_dir()]
+        if subdirs:
+            # Sort by directory name (which contains timestamp)
+            latest_dir = max(subdirs, key=lambda d: d.name)
+            # Look for final checkpoint in latest directory
+            for name in ['ge2e_token.pt', 'ge2e_board.pt']:
+                final = latest_dir / name
+                if final.exists():
+                    return final
+            # Or find latest .pt file in latest directory
+            ckpt_files = list(latest_dir.glob('*.pt'))
+            if ckpt_files:
+                return max(ckpt_files, key=lambda p: p.stat().st_mtime)
+
+    raise FileNotFoundError(f"Could not find checkpoint at {checkpoint_path}")
+
+
 def parse_args() -> argparse.Namespace:
     p = argparse.ArgumentParser(description='Infer embeddings and write submission.csv')
     p.add_argument('--data-root', type=str, required=True)
-    p.add_argument('--ckpt', type=str, required=True)
+    p.add_argument('--ckpt', type=str, required=True,
+                   help='Checkpoint file path or directory containing checkpoints (will use latest)')
     p.add_argument('--out', type=str, required=True)
     p.add_argument('--seq-len', type=int, default=64)
     p.add_argument('--arch', type=str, default='token', choices=['token','board'])
@@ -42,6 +88,10 @@ def main() -> None:
     args = parse_args()
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
+    # Find the latest checkpoint
+    ckpt_file = find_latest_checkpoint(args.ckpt)
+    print(f"Loading checkpoint from: {ckpt_file}")
+
     if args.arch == 'board':
         # Lazy import to avoid ImportError when only token model is needed
         from stylometry.model import BoardStylometryModel  # type: ignore
@@ -49,7 +99,7 @@ def main() -> None:
         model = BoardStylometryModel()
     else:
         model = TokenTransformerEncoder()
-    ckpt = torch.load(args.ckpt, map_location=device)
+    ckpt = torch.load(ckpt_file, map_location=device)
     model.load_state_dict(ckpt['model'])
     model.to(device)
     model.eval()

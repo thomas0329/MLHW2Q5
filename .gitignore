@@ -12,3 +12,5 @@ __pycache__
 machine-learning-class-fall-2025-assignment-2-q-5/
 submission.csv
 Detecting individual decision-making style_ Exploring behavioral stylometry in chess/
+checkpoints/*
+runs*
